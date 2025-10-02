@@ -71,35 +71,46 @@ def forms(connection):
     form_ID_input = input("Enter Wine Label Form ID: ")
     
     cursor = connection.cursor()
-    labels = "F.formID, F.status, W.brand, F.vintage, ACC_R.name, ACC_A.name"
+    labels = "F.formID, F.status, W.brand, F.vintage, ACC_R.name"
 
     forms_select = "SELECT formID, wineID, status, vintage, repID FROM Forms WHERE formID = " + form_ID_input
 
-    sql = f"""SELECT {labels} FROM ({forms_select}) F 
+    sql1 = f"""SELECT {labels} FROM ({forms_select}) F 
     JOIN Wines W
         ON F.wineID = W.wineID
     JOIN Reps R
         ON F.repID = R.repID
     JOIN Accounts ACC_R
-        ON R.loginName = ACC_R.loginName
-    JOIN Process P
-        ON F.formID = P.formID
-    JOIN Agents A
-        ON P.ttbID = A.ttbID
-    JOIN Accounts ACC_A
-        ON A.loginName = ACC_A.loginName"""
-    cursor.execute(sql)
+        ON R.loginName = ACC_R.loginName"""
+    
+    cursor.execute(sql1)
+    c1 = cursor.fetchone()
 
-    c = cursor.fetchone()
+    process_select = "SELECT ttbID, formID FROM Process WHERE formID = " + form_ID_input
+    agents_select = "SELECT ttbID, loginName from Agents"
+    accounts_select = "SELECT loginName, name FROM Accounts"
+    
+    sql2 = f"""SELECT name FROM ({process_select}) P
+    JOIN ({agents_select}) A ON P.ttbID = A.ttbID
+    JOIN ({accounts_select}) ACC_A ON A.loginName = ACC_A.loginName
+    """
+    cursor.execute(sql2)
+    c2 = cursor.fetchall()
 
     print("Wine Label Form Information")
 
-    print(f"Form ID: {c[0]}")
-    print(f"Status: {c[1]}")
-    print(f"Wine Brand: {c[2]}")
-    print(f"Vintage: {c[3]}")
-    print(f"Company Rep Full Name: {c[4]}")
-    print(f"Agent Full Names: {[i for i in c[5:]]}")
+    print(f"Form ID: {c1[0]}")
+    print(f"Status: {c1[1]}")
+    print(f"Wine Brand: {c1[2]}")
+    print(f"Vintage: {c1[3]}")
+    print(f"Company Rep Full Name: {c1[4]}")
+    if len(c2) == 0:
+        print("N/A") 
+    else:
+        # please do not worry about this very stupid way to print out the agent names nicely
+        agent_names_cleaned = map(lambda x: "".join(filter(lambda char: char not in ("()'"), x)), c2)
+        print(*list(agent_names_cleaned), sep=", ")
+        
 
 
 # ----------- Update Phone ---------------------------------
