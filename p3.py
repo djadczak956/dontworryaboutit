@@ -24,6 +24,8 @@ def login():
 
     return connection
 
+# !!!! PLEASE NOTE !!!!
+# We learned that the SQL format we used can be abused and injected, SQL comes with its own format that we didn't cover in class.
 # ----------- Wines ---------------------------------
 def wines(connection):
     wine_ID_input = input("Enter Wine ID: ")
@@ -50,7 +52,8 @@ def wines(connection):
     else:
         print(f"No wine found with ID: {wine_ID_input}")
 
-
+# !!!! PLEASE NOTE !!!!
+# We learned that the SQL format we used can be abused and injected, SQL comes with its own format that we didn't cover in class.
 # ----------- Reps ---------------------------------
 def reps(connection):
     rep_login = input("Enter Company Rep login name: ")
@@ -82,7 +85,8 @@ def reps(connection):
         print(f"No company representative found with login: {rep_login}")
 
     
-
+# !!!! PLEASE NOTE !!!!
+# We learned that the SQL format we used can be abused and injected, SQL comes with its own format that we didn't cover in class.
 # ----------- Wine Label Form ---------------------------------
 def forms(connection):
     form_ID_input = input("Enter Wine Label Form ID: ")
@@ -123,7 +127,8 @@ def forms(connection):
         print(f"Agent Full Names: {agent_names if agent_names else 'N/A'}")
         
 
-
+# !!!! PLEASE NOTE !!!!
+# We learned that the SQL format we used can be abused and injected, SQL comes with its own format that we didn't cover in class.
 # ----------- Update Phone ---------------------------------
 def updatePhone(connection):
     login_input = input("Enter Company Rep Login Name: ")
