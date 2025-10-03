@@ -1,3 +1,5 @@
+# Damian Jadczak and Micah Kurland-Cohen
+
 import sys
 import getpass
 import oracledb
@@ -25,12 +27,19 @@ def login():
 # ----------- Wines ---------------------------------
 def wines(connection):
     wine_ID_input = input("Enter Wine ID: ")
-    cursor = connection.cursor()
-    sql = f"SELECT * FROM Wines WHERE wineID = {wine_ID_input}"
-    cursor.execute(sql)
 
-    print("Wines Information")
-    for wine_ID, brand, class_type, alcohol, appellation, net_content, bottler_name in cursor:
+    sql = "SELECT wineID, brand, classType, alcohol, appellation, netContent, bottlerName FROM Wines WHERE wineID = :id"
+
+    # Use a 'with' statement for safe handling of the cursor
+    with connection.cursor() as cursor:
+        cursor.execute(sql, id=wine_ID_input)
+        result = cursor.fetchone() # Fetch one result since wineID is a primary key
+
+    if result:
+        # Unpack the tuple for clarity
+        wine_ID, brand, class_type, alcohol, appellation, net_content, bottler_name = result
+        
+        print("Wines Information")
         print(f"Wine ID: {wine_ID}")
         print(f"Brand Name: {brand}")
         print(f"Class/Type: {class_type}")
@@ -38,31 +47,39 @@ def wines(connection):
         print(f"Appellation: {appellation}")
         print(f"Net Content: {net_content}")
         print(f"Bottler: {bottler_name}")
-
-    cursor.close()
+    else:
+        print(f"No wine found with ID: {wine_ID_input}")
 
 
 # ----------- Reps ---------------------------------
 def reps(connection):
     rep_login = input("Enter Company Rep login name: ")
-    cursor = connection.cursor()
 
-    labels = "R.loginName, repID, name, phone, email, companyName"
-    reps_select = "SELECT loginName, repID, companyName FROM Reps"
-    accounts_select = "SELECT loginName, name, phone, email FROM Accounts"
+    # The SQL query uses a named placeholder ':login_name'
+    sql = """
+        SELECT A.loginName, R.repID, A.name, A.phone, A.email, R.companyName
+        FROM Accounts A
+        JOIN Reps R ON A.loginName = R.loginName
+        WHERE A.loginName = :login_name
+    """
+    
+    with connection.cursor() as cursor:
+        # The user input is passed safely as a parameter
+        cursor.execute(sql, login_name=rep_login)
+        result = cursor.fetchone() # Fetch one since loginName is unique
 
-    sql = f'''SELECT {labels} FROM ({reps_select}) R JOIN ({accounts_select}) A 
-        ON R.loginName = A.loginName WHERE R.loginName = \'{rep_login}\''''
-    cursor.execute(sql)
+    if result:
+        login_name, rep_ID, full_name, phone, email_address, company_name = result
 
-    print("Company Representative Information")
-    for login_name, rep_ID, full_name, phone, email_address, company_name in cursor:
+        print("Company Representative Information")
         print(f"Login Name: {login_name}")
         print(f"RepID: {rep_ID}")
         print(f"Full Name: {full_name}")
         print(f"Phone: {phone}")
         print(f"Email Address: {email_address}")
         print(f"Company Name: {company_name}")
+    else:
+        print(f"No company representative found with login: {rep_login}")
 
     
 
@@ -70,46 +87,40 @@ def reps(connection):
 def forms(connection):
     form_ID_input = input("Enter Wine Label Form ID: ")
     
-    cursor = connection.cursor()
-    labels = "F.formID, F.status, W.brand, F.vintage, ACC_R.name"
-
-    forms_select = "SELECT formID, wineID, status, vintage, repID FROM Forms WHERE formID = " + form_ID_input
-
-    sql1 = f"""SELECT {labels} FROM ({forms_select}) F 
-    JOIN Wines W
-        ON F.wineID = W.wineID
-    JOIN Reps R
-        ON F.repID = R.repID
-    JOIN Accounts ACC_R
-        ON R.loginName = ACC_R.loginName"""
-    
-    cursor.execute(sql1)
-    c1 = cursor.fetchone()
-
-    process_select = "SELECT ttbID, formID FROM Process WHERE formID = " + form_ID_input
-    agents_select = "SELECT ttbID, loginName from Agents"
-    accounts_select = "SELECT loginName, name FROM Accounts"
-    
-    sql2 = f"""SELECT name FROM ({process_select}) P
-    JOIN ({agents_select}) A ON P.ttbID = A.ttbID
-    JOIN ({accounts_select}) ACC_A ON A.loginName = ACC_A.loginName
+    # LISTAGG is an Oracle function to combine strings from multiple rows.
+    sql = """
+        SELECT
+            F.formID, F.status, W.brand, F.vintage, REP_ACC.name AS rep_name,
+            LISTAGG(AGENT_ACC.name, ', ') WITHIN GROUP (ORDER BY AGENT_ACC.name) AS agent_names
+        FROM Forms F
+        LEFT JOIN Wines W ON F.wineID = W.wineID
+        LEFT JOIN Reps R ON F.repID = R.repID
+        LEFT JOIN Accounts REP_ACC ON R.loginName = REP_ACC.loginName
+        LEFT JOIN Process P ON F.formID = P.formID
+        LEFT JOIN Agents A ON P.ttbID = A.ttbID
+        LEFT JOIN Accounts AGENT_ACC ON A.loginName = AGENT_ACC.loginName
+        WHERE F.formID = :form_id
+        GROUP BY F.formID, F.status, W.brand, F.vintage, REP_ACC.name
     """
-    cursor.execute(sql2)
-    c2 = cursor.fetchall()
 
-    print("Wine Label Form Information")
+    with connection.cursor() as cursor:
+        cursor.execute(sql, form_id=form_ID_input)
+        result = cursor.fetchone()
 
-    print(f"Form ID: {c1[0]}")
-    print(f"Status: {c1[1]}")
-    print(f"Wine Brand: {c1[2]}")
-    print(f"Vintage: {c1[3]}")
-    print(f"Company Rep Full Name: {c1[4]}")
-    if len(c2) == 0:
-        print("N/A") 
-    else:
-        # please do not worry about this very stupid way to print out the agent names nicely
-        agent_names_cleaned = map(lambda x: "".join(filter(lambda char: char not in ("()'"), x)), c2)
-        print(*list(agent_names_cleaned), sep=", ")
+        if not result:
+            print(f"No form found with ID: {form_ID_input}")
+            return
+
+        form_id, status, brand, vintage, rep_name, agent_names = result
+        
+        print("Wine Label Form Information")
+        print(f"Form ID: {form_id}")
+        print(f"Status: {status}")
+        print(f"Wine Brand: {brand}")
+        print(f"Vintage: {vintage}")
+        print(f"Company Rep Full Name: {rep_name}")
+        # Use agent_names if not null, otherwise print N/A
+        print(f"Agent Full Names: {agent_names if agent_names else 'N/A'}")
         
 
 
@@ -118,14 +129,20 @@ def updatePhone(connection):
     login_input = input("Enter Company Rep Login Name: ")
     phone_input = input("Enter the Updated Phone Number: ")
 
-    cursor = connection.cursor()
+    with connection.cursor() as cursor:
+        sql = """UPDATE Accounts
+                 SET phone = :new_phone
+                 WHERE loginName = :login"""
+        
+        cursor.execute(sql, new_phone=phone_input, login=login_input)
+        
+        # Check if any row was actually updated
+        if cursor.rowcount == 0:
+            print(f"Update failed. No user found with login name: {login_input}")
+        else:
+            connection.commit() # Only commit if the update was successful
+            print(f"Phone number updated for {login_input}.")
 
-    sql = f""" UPDATE Accounts
-        SET phone = '{(phone_input)}'
-        WHERE loginName = '{login_input}'"""
-    
-    cursor.execute(sql)
-    connection.commit()
 
 # ----------- Main ---------------------------------
 def main():
@@ -143,9 +160,20 @@ def main():
             updatePhone(connection)
     
 if __name__ == "__main__":
-    if (len(sys.argv) < 2):
-        print("Username and password should be included as parameters.")
-        sys.exit()
 
+    # 1. Check for insufficient arguments (must have user, pass)
+    if len(sys.argv) < 3:
+        print("Username and password should be included as parameters.")
+        sys.exit(1)
+
+    # 2. Handle the case where no option is provided (print menu)
+    if len(sys.argv) == 3:
+        print("1 – Report Wine Information")
+        print("2 – Report Company Rep Information")
+        print("3 – Report Wine Label Form Information")
+        print("4 – Update Phone Number")
+        sys.exit(0)
+
+    # 3. Proceed if user, pass, and option are provided
     main()
 
