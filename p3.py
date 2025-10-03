@@ -173,10 +173,10 @@ if __name__ == "__main__":
 
     # 2. Handle the case where no option is provided (print menu)
     if len(sys.argv) == 3:
-        print("1 – Report Wine Information")
-        print("2 – Report Company Rep Information")
-        print("3 – Report Wine Label Form Information")
-        print("4 – Update Phone Number")
+        print("1 - Report Wine Information")
+        print("2 - Report Company Rep Information")
+        print("3 - Report Wine Label Form Information")
+        print("4 - Update Phone Number")
         sys.exit(0)
 
     # 3. Proceed if user, pass, and option are provided
